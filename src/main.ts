@@ -12,6 +12,8 @@ async function bootstrap() {
     origin: [
       'http://localhost:4200',
       'https://dnd-ai.pages.dev',
+      'https://rpg-play-ai.com',
+      'https://app.rpg-play-ai.com'
       // 'http://127.0.0.1:8788', // Если будешь обращаться с wrangler
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
