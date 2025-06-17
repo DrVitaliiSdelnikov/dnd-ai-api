@@ -11,7 +11,7 @@ async function bootstrap() {
   const allowedOrigins = [
     'http://localhost:4200',
     'https://rpg-play-ai.com',
-    'https://dnd-ai.pages.dev/',
+    'https://dnd-ai.pages.dev',
     'https://api.rpg-play-ai.com',
     'https://app.rpg-play-ai.com',
   ];
