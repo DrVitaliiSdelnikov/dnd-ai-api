@@ -51,6 +51,7 @@ export class ChatService {
     return angularMessages.map((msg) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }],
+      version: 'gemini-2.5',
     }));
   }
 

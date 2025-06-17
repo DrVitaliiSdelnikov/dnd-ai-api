@@ -8,14 +8,33 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('NEST_PORT') || 3000;
 
+  const allowedOrigins = [
+    'http://localhost:4200',
+    'https://rpg-play-ai.com',
+    'https://app.rpg-play-ai.com',
+  ];
+
   app.enableCors({
-    origin: [
-      'http://localhost:4200',
-      'https://dnd-ai.pages.dev',
-      'https://rpg-play-ai.com',
-      'https://app.rpg-play-ai.com'
-      // 'http://127.0.0.1:8788', // Если будешь обращаться с wrangler
-    ],
+    // 👇 ЗАМЕНЯЕМ СТАТИЧЕСКИЙ МАССИВ НА ФУНКЦИЮ
+    origin: (origin, callback) => {
+      // Разрешаем запросы, у которых нет origin (например, Postman, мобильные приложения)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Разрешаем все наши статические домены
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // ✨ ГЛАВНОЕ РЕШЕНИЕ: Разрешаем любой поддомен dnd-ai.pages.dev
+      if (origin.endsWith('.dnd-ai.pages.dev')) {
+        return callback(null, true);
+      }
+
+      // Если ни одно из условий не выполнено, запрещаем запрос
+      callback(new Error('Not allowed by CORS'));
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
