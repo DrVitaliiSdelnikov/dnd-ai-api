@@ -18,6 +18,9 @@ interface GeminiMessage {
 
 interface GeminiRequestBody {
   contents: GeminiMessage[];
+  systemInstruction?: {
+    parts: GeminiMessagePart[];
+  };
   generationConfig?: {
     temperature?: number;
     maxOutputTokens?: number;
@@ -38,7 +41,7 @@ export class ChatService {
       );
       throw new Error('Configuration error: GOOGLE_API_KEY is missing.');
     }
-    const modelName = 'gemini-1.5-flash-latest'; // или 'gemini-pro'
+    const modelName = 'gemini-2.5-flash-preview-05-20';
     this.geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.googleApiKey}`;
   }
 
@@ -57,13 +60,28 @@ export class ChatService {
     const geminiFormattedMessages =
       this.mapMessagesToGeminiFormat(angularMessages);
 
+    const systemInstruction = {
+      role: 'system', // Техническая роль
+      parts: [
+        {
+          text: `
+        You are the Dungeon Master in a text-based, fantasy RPG.
+        Be patient to player and especially at the very beginning of the new game, help him create his hero and ask him more details about it, his stats, abilities and inventory. If you see, that he is newcomer and can not set details by himself, offer him to do it for him, and if he agree, set details, that he was not able to answer.
+        Your task is to describe the world vividly and colorfully, role-play non-player characters (NPCs), react fairly to player actions, and follow the plot. Never break character.
+        Address the players formally (using 'you'). Your tone should be mysterious yet fair. Do not generate your response in Markdown format.`,
+        },
+      ],
+    };
+
     const requestBody: GeminiRequestBody = {
       contents: geminiFormattedMessages,
-      // generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+      systemInstruction: {
+        parts: systemInstruction.parts,
+      },
+      generationConfig: { temperature: 0.75, maxOutputTokens: 2000 },
     };
 
     this.logger.log(`Sending request to Gemini API: ${this.geminiApiUrl}`);
-    // this.logger.debug(`Request body: ${JSON.stringify(requestBody)}`); // Для отладки
 
     try {
       const response = await fetch(this.geminiApiUrl, {
