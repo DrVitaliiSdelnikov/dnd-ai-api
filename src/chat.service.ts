@@ -1,5 +1,6 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config'; // Для доступа к переменным окружения
+import { Injectable, HttpException, HttpStatus, Logger, BadGatewayException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { delay } from 'rxjs'; // Для доступа к переменным окружения
 
 // Интерфейсы, соответствующие тем, что используются в Angular и для Gemini
 interface AngularChatMessage {
@@ -50,12 +51,13 @@ export class ChatService {
   ): GeminiMessage[] {
     return angularMessages.map((msg) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
+      parts: [{ text: msg.content }],
     }));
   }
 
   async getGeminiResponse(
     angularMessages: AngularChatMessage[],
+    retries = 3,
   ): Promise<AngularChatMessage> {
     const geminiFormattedMessages =
       this.mapMessagesToGeminiFormat(angularMessages);
@@ -97,27 +99,47 @@ export class ChatService {
         this.logger.error(
           `Error from Gemini API (Status: ${response.status}): ${errorBody}`,
         );
+
+        if (
+          (response.status === 429 || response.status >= 500) &&
+          retries > 0
+        ) {
+          const waitTime = Math.pow(2, 3 - retries) * 1000;
+          this.logger.warn(
+            `Rate limit or server error. Retrying in ${waitTime}ms... (${retries} retries left)`,
+          );
+          delay(waitTime);
+          return this.getGeminiResponse(angularMessages, retries - 1);
+        }
+
+
         let errorMessage = `AI service request failed (Status: ${response.status}).`;
         try {
           const parsedError = JSON.parse(errorBody);
           errorMessage = parsedError.error?.message || errorMessage;
         } catch (e) {
-          /* Не удалось распарсить ошибку как JSON */
+
+        }
+
+        if (response.status >= 500) {
+          throw new BadGatewayException({
+            message: 'The AI service is currently unavailable.',
+            upstreamError: errorMessage,
+          });
         }
 
         throw new HttpException(
           {
             status: response.status,
             error: errorMessage,
-            details: errorBody, // Можно добавить детали
+            details: errorBody,
           },
           response.status,
         );
       }
 
-      const geminiData = (await response.json()) as any; // Используем any для гибкости, но лучше определить тип ответа Gemini
+      const geminiData = (await response.json()) as any;
       this.logger.log('Received response from Gemini API.');
-      // this.logger.debug(`Response data: ${JSON.stringify(geminiData)}`); // Для отладки
 
       let assistantContent = "Sorry, I couldn't understand the AI's response.";
       if (
@@ -148,7 +170,7 @@ export class ChatService {
       return { role: 'assistant', content: assistantContent };
     } catch (error) {
       if (error instanceof HttpException) {
-        throw error; // Перебрасываем HttpException
+        throw error;
       }
       this.logger.error('Critical error during Gemini API call:', error);
       throw new HttpException(

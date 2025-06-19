@@ -17,24 +17,19 @@ async function bootstrap() {
   ];
 
   app.enableCors({
-    // 👇 ЗАМЕНЯЕМ СТАТИЧЕСКИЙ МАССИВ НА ФУНКЦИЮ
     origin: (origin, callback) => {
-      // Разрешаем запросы, у которых нет origin (например, Postman, мобильные приложения)
       if (!origin) {
         return callback(null, true);
       }
 
-      // Разрешаем все наши статические домены
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // ✨ ГЛАВНОЕ РЕШЕНИЕ: Разрешаем любой поддомен dnd-ai.pages.dev
       if (origin.endsWith('.dnd-ai.pages.dev')) {
         return callback(null, true);
       }
 
-      // Если ни одно из условий не выполнено, запрещаем запрос
       callback(new Error('Not allowed by CORS'));
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
