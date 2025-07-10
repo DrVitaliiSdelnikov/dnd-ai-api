@@ -80,7 +80,7 @@ export class ChatService {
       systemInstruction: {
         parts: systemInstruction.parts,
       },
-      generationConfig: { temperature: 0.75, maxOutputTokens: 2000 },
+      generationConfig: { temperature: 0.75, maxOutputTokens: 8000 },
     };
 
     this.logger.log(`Sending request to Gemini API: ${this.geminiApiUrl}`);
