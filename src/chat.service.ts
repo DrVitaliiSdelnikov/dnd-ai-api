@@ -1,32 +1,16 @@
-import { Injectable, HttpException, HttpStatus, Logger, BadGatewayException } from '@nestjs/common';
+import {
+  Injectable, HttpException, HttpStatus, Logger, BadGatewayException
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { delay } from 'rxjs'; // Для доступа к переменным окружения
+import {
+  AI_AS_MASTER_GENERAL_INSTRUCTION,
+  NOT_JSON_RESPONSE_ERROR_INSTRUCTION,
+} from './prompts/prompts';
+import {
+  AngularChatMessage, GeminiMessage, GeminiRequestBody
+} from './chat/chat.model';
 
-// Интерфейсы, соответствующие тем, что используются в Angular и для Gemini
-interface AngularChatMessage {
-  role: string;
-  content: string;
-}
-
-interface GeminiMessagePart {
-  text: string;
-}
-
-interface GeminiMessage {
-  role: string;
-  parts: GeminiMessagePart[];
-}
-
-interface GeminiRequestBody {
-  contents: GeminiMessage[];
-  systemInstruction?: {
-    parts: GeminiMessagePart[];
-  };
-  generationConfig?: {
-    temperature?: number;
-    maxOutputTokens?: number;
-  };
-}
+export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 @Injectable()
 export class ChatService {
@@ -58,19 +42,23 @@ export class ChatService {
   async getGeminiResponse(
     angularMessages: AngularChatMessage[],
     retries = 3,
+    isCorrectionAttempt = false,
   ): Promise<AngularChatMessage> {
-    const geminiFormattedMessages =
-      this.mapMessagesToGeminiFormat(angularMessages);
+    if (isCorrectionAttempt) {
+      const correctionInstruction: AngularChatMessage = {
+        role: 'user',
+        content: NOT_JSON_RESPONSE_ERROR_INSTRUCTION,
+      };
+      angularMessages.push(correctionInstruction);
+    }
+
+    const geminiFormattedMessages = this.mapMessagesToGeminiFormat(angularMessages);
 
     const systemInstruction = {
-      role: 'system', // Техническая роль
+      role: 'system',
       parts: [
         {
-          text: `
-        You are the Dungeon Master in a text-based, fantasy RPG.
-        Be patient to player and especially at the very beginning of the new game, help him create his hero and ask him more details about it, his stats, abilities and inventory. If you see, that he is newcomer and can not set details by himself, offer him to do it for him, and if he agree, set details, that he was not able to answer.
-        Your task is to describe the world vividly and colorfully, role-play non-player characters (NPCs), react fairly to player actions, and follow the plot. Never break character.
-        Address the players formally (using 'you'). Your tone should be mysterious yet fair. Do not generate your response in Markdown format.`,
+          text: AI_AS_MASTER_GENERAL_INSTRUCTION,
         },
       ],
     };
@@ -80,7 +68,7 @@ export class ChatService {
       systemInstruction: {
         parts: systemInstruction.parts,
       },
-      generationConfig: { temperature: 0.75, maxOutputTokens: 8000 },
+      generationConfig: { temperature: 0.75, maxOutputTokens: 8192 },
     };
 
     this.logger.log(`Sending request to Gemini API: ${this.geminiApiUrl}`);
@@ -108,18 +96,15 @@ export class ChatService {
           this.logger.warn(
             `Rate limit or server error. Retrying in ${waitTime}ms... (${retries} retries left)`,
           );
-          delay(waitTime);
-          return this.getGeminiResponse(angularMessages, retries - 1);
+          await delay(waitTime);
+          return this.getGeminiResponse(angularMessages, retries - 1, false);
         }
-
 
         let errorMessage = `AI service request failed (Status: ${response.status}).`;
         try {
           const parsedError = JSON.parse(errorBody);
           errorMessage = parsedError.error?.message || errorMessage;
-        } catch (e) {
-
-        }
+        } catch (e) {}
 
         if (response.status >= 500) {
           throw new BadGatewayException({
@@ -142,6 +127,9 @@ export class ChatService {
       this.logger.log('Received response from Gemini API.');
 
       let assistantContent = "Sorry, I couldn't understand the AI's response.";
+      let rawContent: string | null = null;
+      let isBlocked = false;
+
       if (
         geminiData.candidates &&
         geminiData.candidates.length > 0 &&
@@ -150,11 +138,13 @@ export class ChatService {
         geminiData.candidates[0].content.parts.length > 0 &&
         geminiData.candidates[0].content.parts[0].text
       ) {
+        rawContent = geminiData.candidates[0].content.parts[0].text;
         assistantContent = geminiData.candidates[0].content.parts[0].text;
       } else if (
         geminiData.promptFeedback &&
         geminiData.promptFeedback.blockReason
       ) {
+        isBlocked = true;
         assistantContent = `My response was blocked. Reason: ${geminiData.promptFeedback.blockReason}.`;
         this.logger.warn(
           'Gemini API response blocked:',
@@ -167,7 +157,41 @@ export class ChatService {
         );
       }
 
-      return { role: 'assistant', content: assistantContent };
+      if (isBlocked) {
+        return {
+          role: 'assistant',
+          content: `My response was blocked. Reason: ${assistantContent}.`
+        };
+      }
+
+      try {
+        JSON.parse(rawContent);
+        this.logger.log('AI response is a valid JSON.');
+        return { role: 'assistant', content: rawContent };
+      } catch (parsingError) {
+        this.logger.warn(`
+        Failed to parse AI response as JSON. Raw response: "${rawContent}"
+        `);
+
+        if (retries > 0) {
+          this.logger.warn(`
+          Retrying with a correction instruction... (${retries} retries left)
+          `);
+          await delay(1000);
+          return this.getGeminiResponse(angularMessages, retries - 1, true);
+        } else {
+          this.logger.error(`
+            Failed to get a valid JSON response from AI after multiple retries.
+          `);
+          return {
+            role: 'assistant',
+            content: `
+            Sorry, I'm having trouble formatting my response right now. 
+            Please try again in a moment.
+            `,
+          };
+        }
+      }
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;

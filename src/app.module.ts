@@ -8,7 +8,7 @@ import { ChatService } from './chat.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ // Настройка
+    ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
