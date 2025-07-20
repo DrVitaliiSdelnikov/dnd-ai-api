@@ -1,14 +1,21 @@
 import {
-  Injectable, HttpException, HttpStatus, Logger, BadGatewayException
+  Injectable,
+  HttpException,
+  HttpStatus,
+  Logger,
+  BadGatewayException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AI_AS_MASTER_GENERAL_INSTRUCTION,
   NOT_JSON_RESPONSE_ERROR_INSTRUCTION,
-} from './prompts/prompts';
+} from '../prompts/prompts';
 import {
-  AngularChatMessage, GeminiMessage, GeminiRequestBody
-} from './chat/chat.model';
+  AngularChatMessage,
+  GeminiMessage,
+  GeminiRequestBody,
+} from './chat.model';
+import { AiParams } from '../const/ai';
 
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -68,7 +75,7 @@ export class ChatService {
       systemInstruction: {
         parts: systemInstruction.parts,
       },
-      generationConfig: { temperature: 0.75, maxOutputTokens: 8192 },
+      generationConfig: { temperature: AiParams.temperature, maxOutputTokens: AiParams.maxOutputTokens },
     };
 
     this.logger.log(`Sending request to Gemini API: ${this.geminiApiUrl}`);

@@ -11,3 +11,5 @@ export const AI_AS_MASTER_GENERAL_INSTRUCTION = `
   Your task is to describe the world vividly and colorfully, role-play non-player characters (NPCs), react fairly to player actions, and follow the plot. Never break character.
   Address the players formally (using 'you'). Your tone should be mysterious yet fair. Do not generate your response in Markdown format.
 `;
+
+export const TASK_SUMMARIZE_HISTORY = ``;

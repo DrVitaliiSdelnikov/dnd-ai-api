@@ -3,8 +3,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { ChatModule } from './chat/chat.module';
-import { ChatController } from './chat.controller';
-import { ChatService } from './chat.service';
+import { ChatController } from './chat/chat.controller';
+import { ChatService } from './chat/chat.service';
+import { SummarizeModule } from './summarize/summarize.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ChatService } from './chat.service';
       envFilePath: '.env',
     }),
     ChatModule,
+    SummarizeModule,
   ],
   controllers: [AppController, ChatController],
   providers: [AppService, ChatService],
