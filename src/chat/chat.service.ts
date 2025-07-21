@@ -15,7 +15,7 @@ import {
   GeminiMessage,
   GeminiRequestBody,
 } from './chat.model';
-import { AiParams } from '../const/ai';
+import { AiParams, getGeminiApiUrl } from '../const/ai';
 
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -33,8 +33,7 @@ export class ChatService {
       );
       throw new Error('Configuration error: GOOGLE_API_KEY is missing.');
     }
-    const modelName = 'gemini-2.5-flash-preview-05-20';
-    this.geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.googleApiKey}`;
+    this.geminiApiUrl = getGeminiApiUrl(this.googleApiKey);
   }
 
   private mapMessagesToGeminiFormat(
@@ -59,7 +58,8 @@ export class ChatService {
       angularMessages.push(correctionInstruction);
     }
 
-    const geminiFormattedMessages = this.mapMessagesToGeminiFormat(angularMessages);
+    const geminiFormattedMessages =
+      this.mapMessagesToGeminiFormat(angularMessages);
 
     const systemInstruction = {
       role: 'system',
@@ -75,7 +75,10 @@ export class ChatService {
       systemInstruction: {
         parts: systemInstruction.parts,
       },
-      generationConfig: { temperature: AiParams.temperature, maxOutputTokens: AiParams.maxOutputTokens },
+      generationConfig: {
+        temperature: AiParams.temperature,
+        maxOutputTokens: AiParams.maxOutputTokens,
+      },
     };
 
     this.logger.log(`Sending request to Gemini API: ${this.geminiApiUrl}`);
@@ -167,7 +170,7 @@ export class ChatService {
       if (isBlocked) {
         return {
           role: 'assistant',
-          content: `My response was blocked. Reason: ${assistantContent}.`
+          content: `My response was blocked. Reason: ${assistantContent}.`,
         };
       }
 

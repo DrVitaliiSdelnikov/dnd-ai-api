@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { TASK_SUMMARIZE_HISTORY } from '../prompts/prompts';
 import { ConfigService } from '@nestjs/config';
-import { AiParams } from '../const/ai';
+import { AiModelName, AiParams, getGeminiApiUrl } from '../const/ai';
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -27,8 +27,7 @@ export class SummarizeService {
       this.logger.error('GOOGLE_API_KEY is not defined!');
       throw new Error('Configuration error: GOOGLE_API_KEY is missing.');
     }
-    const modelName = 'gemini-2.5-flash-preview-05-20';
-    this.geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.googleApiKey}`;
+    this.geminiApiUrl = getGeminiApiUrl(this.googleApiKey);
   }
 
   async getSummaryFromGemini(
